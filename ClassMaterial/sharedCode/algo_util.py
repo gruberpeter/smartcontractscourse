@@ -1,5 +1,5 @@
 """ Utility functions and shortcuts for the WSC winter school
-    (c) 2022 peter.gruber@usi.ch
+    (c) 2022-23 peter.gruber@usi.ch
     """
 
 # ========= Utility functions for accounts and credentials ==========
@@ -29,7 +29,7 @@ def send_payment(client, sender_private, receiver_public, amount, note=''):
     # note = note as encoded JSON (if any)
     from algosdk import account
     from algosdk.v2client import algod
-    from algosdk.future.transaction import PaymentTxn
+    from algosdk.transaction import PaymentTxn
    
     sp             = client.suggested_params()
     algo_precision = 1e6
@@ -101,11 +101,7 @@ def asset_holdings(client, public):
     info = []
     # Algo part
     info.append( {'amount':  account_info['amount']/1E6, 
-                  'unit' :   'ALGO', 
-                  'asset-id': 0, 
-                  'name': 'Algorand',
-                  'decimals': 6
-                  } )
+                  'unit' :   'ALGO', 'asset-id': 0, 'name': 'Algorand','decimals': 6} )
 
     # ASA part
     assets = account_info['assets']
@@ -113,13 +109,13 @@ def asset_holdings(client, public):
         asset_id     = asset['asset-id']
         asset_info   = client.asset_info(asset_id)                         # Get all info
         asset_amount = asset['amount']/10**asset_info['params']['decimals']      # convert to BIG units
-        asset_unit   = asset_info['params']['unit-name']
         info.append( {'amount':  asset_amount,
-                      'unit' :   asset_unit,
+                      'unit' :   asset_info['params'].get('unit-name'),
                       'asset-id':asset_id,
-                      'name': asset_info['params']['name'],
-                      'decimals': asset_info['params']['decimals']
+                      'name':    asset_info['params'].get('name'),
+                      'decimals':asset_info['params']['decimals']
                       } )
+
     return(info) #.sort_values('asset-id')
 
 def asset_holdings_df(client, public):
@@ -140,9 +136,30 @@ def asset_holdings_df2(client,adr1,adr2,suffix=['','']):
     df1 = pd.DataFrame(info1)
     info2 = asset_holdings(client, adr2)
     df2 = pd.DataFrame(info2)
-    pd.set_option('precision', 4)
     df_merge = pd.merge(df1,df2,how="outer", on=["asset-id", "unit", "name", "decimals"],suffixes=suffix)
     return(df_merge)
+
+def asset_holdings_list(client,adr_list,suffix=None):
+    # client = algosdk client
+    # adr = list of public address to be analyzed
+    import pandas as pd
+    from algosdk.v2client import algod
+    
+    # if there are no suffixes, create a list of empty suffixes
+    if suffix is None:
+        suffix = ['']*len(adr_list)
+        
+    # obtain info for first address
+    info1 = asset_holdings(client, adr_list[0])
+    df_merge = pd.DataFrame(info1)
+    
+    # loop through addresses 2,3,4 ...
+    for k in range(1,len(adr_list)):
+        info2 = asset_holdings(client, adr_list[k])
+        df2 = pd.DataFrame(info2)
+        df_merge = pd.merge(df_merge,df2,how="outer", on=["asset-id", "unit", "name", "decimals"],suffixes=["",suffix[k]])
+    return(df_merge)
+
 
 
 # ========= Utility functions for stateful smart contracts ==========
@@ -150,7 +167,7 @@ def asset_holdings_df2(client,adr1,adr2,suffix=['','']):
 def read_global_state(client, app_id):
     # reads an app's global state
     # client = client
-    return  client.application_info(app_id)["params"]["global-state"]
+    return  format_state(client.application_info(app_id)["params"].get("global-state"))
 
 def read_local_state(client, addr, app_id):
     # reads a user's local state

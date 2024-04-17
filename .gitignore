@@ -34,6 +34,7 @@ __pycache__
 *.indd
 !ClassMaterial/05\ -\ NFTs/05\ code/*.jpg #Except for.jpg in NFT code
 !paris.jpg
+!mac.jpg
 
 ## Core latex/pdflatex auxiliary files:
 *.aux
